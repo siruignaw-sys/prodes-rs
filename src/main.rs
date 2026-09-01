@@ -13,6 +13,15 @@ struct Point3D {
 fn main() {
     let pdb = get_pdb("data/4F5S.pdb");
     let atoms: Vec<&Atom> = pdb.atoms().collect();
+    let mut exposed_points: Vec<Point3D> = Vec::new();
+    let mut max_radius = 0;
+    for atom in atoms {
+        let rad = radius(atom.element().expect("NO ELEMENT")) + 1.4;
+        if rad > max_radius {
+            max_radius = rad;
+        }
+    }
+    let cell_size = max_radius * 2;
 
     for (i, atom) in atoms.iter().enumerate() {
         let rad = match radius(atom.element()) {
@@ -46,6 +55,7 @@ fn main() {
 
             if !blocked {
                 exposed += 1;
+                exposed_points.push(point); 
             }
         }
         let fraction_exposed = exposed as f64 / points.len() as f64;
@@ -63,27 +73,6 @@ fn get_pdb(data: &str) -> PDB {
 
     let (pdb, _error) = options.read(data).unwrap();
     return pdb; 
-}
-
-fn get_stuff() {
-    let mut options = ReadOptions::new();
-    options.set_level(StrictnessLevel::Loose);
-
-    let (pdb, _error) = options.read("data/4F5S.pdb").unwrap();
-    
-    if let Some(chain) = pdb.chains().find(|c| c.id() == "A") {
- 
-        let total_atoms = chain.atoms().count();
-        println!("Total atoms: {}", total_atoms);
-
-        let total_residues = chain.residues().count();
-        println!("Total residues: {}", total_residues);
-
-
-    }
-    else {
-        println!("Chain A not found");
-    }
 }
 
 fn radius(atom: Option<&Element>) -> Option<f64> {
