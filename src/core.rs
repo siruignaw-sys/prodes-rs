@@ -108,6 +108,70 @@ mod tests {
     \nATOM     37  CE  LYS A   3       0.000   0.000  37.000  1.00  0.00           C
     \nATOM     38  NZ  LYS A   3       0.000   0.000  38.000  1.00  0.00           N
     \nTER\nEND\n";
+    
+    const TOY_CHAIN_WITH_WATER_PDB: &str = "ATOM      1  N   ASP A   1       0.000   0.000   1.000  1.00  0.00           N
+    \nATOM      2  CA  ASP A   1       0.000   0.000   2.000  1.00  0.00           C
+    \nATOM      3  C   ASP A   1       0.000   0.000   3.000  1.00  0.00           C
+    \nATOM      4  O   ASP A   1       0.000   0.000   4.000  1.00  0.00           O
+    \nATOM      5  CB  ASP A   1       0.000   0.000   5.000  1.00  0.00           C
+    \nATOM      6  OD1 ASP A   1       0.000   0.000   6.000  1.00  0.00           O
+    \nATOM      7  OD2 ASP A   1       0.000   0.000   7.000  1.00  0.00           O
+    \nATOM      8  N  AARG A   2       0.000   0.000   8.000  0.50  0.00           N
+    \nATOM      9  CA AARG A   2       0.000   0.000   9.000  0.50  0.00           C
+    \nATOM     10  C  AARG A   2       0.000   0.000  10.000  0.50  0.00           C
+    \nATOM     11  O  AARG A   2       0.000   0.000  11.000  0.50  0.00           O
+    \nATOM     12  CB AARG A   2       0.000   0.000  12.000  0.50  0.00           C
+    \nATOM     13  CG AARG A   2       0.000   0.000  13.000  0.50  0.00           C
+    \nATOM     14  CD AARG A   2       0.000   0.000  14.000  0.50  0.00           C
+    \nATOM     15  NE AARG A   2       0.000   0.000  15.000  0.50  0.00           N
+    \nATOM     16  CZ AARG A   2       0.000   0.000  16.000  0.50  0.00           C
+    \nATOM     17  NH1AARG A   2       0.000   0.000  17.000  0.50  0.00           N
+    \nATOM     18  NH2AARG A   2       0.000   0.000  18.000  0.50  0.00           N
+    \nATOM     19  N  BARG A   2       0.000   0.000  19.000  0.50  0.00           N
+    \nATOM     20  CA BARG A   2       0.000   0.000  20.000  0.50  0.00           C
+    \nATOM     21  C  BARG A   2       0.000   0.000  21.000  0.50  0.00           C
+    \nATOM     22  O  BARG A   2       0.000   0.000  22.000  0.50  0.00           O
+    \nATOM     23  CB BARG A   2       0.000   0.000  23.000  0.50  0.00           C
+    \nATOM     24  CG BARG A   2       0.000   0.000  24.000  0.50  0.00           C
+    \nATOM     25  CD BARG A   2       0.000   0.000  25.000  0.50  0.00           C
+    \nATOM     26  NE BARG A   2       0.000   0.000  26.000  0.50  0.00           N
+    \nATOM     27  CZ BARG A   2       0.000   0.000  27.000  0.50  0.00           C
+    \nATOM     28  NH1BARG A   2       0.000   0.000  28.000  0.50  0.00           N
+    \nATOM     29  NH2BARG A   2       0.000   0.000  29.000  0.50  0.00           N
+    \nATOM     30  N   LYS A   3       0.000   0.000  30.000  1.00  0.00           N
+    \nATOM     31  CA  LYS A   3       0.000   0.000  31.000  1.00  0.00           C
+    \nATOM     32  C   LYS A   3       0.000   0.000  32.000  1.00  0.00           C
+    \nATOM     33  O   LYS A   3       0.000   0.000  33.000  1.00  0.00           O
+    \nATOM     34  CB  LYS A   3       0.000   0.000  34.000  1.00  0.00           C
+    \nATOM     35  CG  LYS A   3       0.000   0.000  35.000  1.00  0.00           C
+    \nATOM     36  CD  LYS A   3       0.000   0.000  36.000  1.00  0.00           C
+    \nATOM     37  CE  LYS A   3       0.000   0.000  37.000  1.00  0.00           C
+    \nATOM     38  NZ  LYS A   3       0.000   0.000  38.000  1.00  0.00           N
+    \nHETATM   39  O   HOH A 101       0.000   0.000  39.000  1.00  0.00           O
+    \nHETATM   40  O   HOH A 102       0.000   0.000  40.000  1.00  0.00           O
+    \nTER\nEND\n";
+
+    #[test]
+    fn trailing_hetatm_waters_do_not_hide_the_true_c_terminus() {
+        let mut options = ReadOptions::new();
+        options.set_level(StrictnessLevel::Loose);
+        options.set_format(Format::Pdb);
+        let cursor = Cursor::new(TOY_CHAIN_WITH_WATER_PDB.as_bytes());
+        let (pdb, _warnings) = options.read_raw(BufReader::new(cursor)).unwrap();
+        let mut chain = pdb.chains().find(|c| c.id() == "A").unwrap().clone();
+        chain.sort();
+
+        // sanity check the fixture: two HOH residues really are in this chain, after LYS
+        let water_count = chain.residues().filter(|r| r.name() == Some("HOH")).count();
+        assert_eq!(water_count, 2, "test fixture should have 2 waters");
+
+        let charged = ionizable_atoms(&chain);
+        let c_term: Vec<_> = charged.iter().filter(|(_, pka, _)| *pka == 2.34).collect();
+        assert_eq!(c_term.len(), 1, "LYS's C should still be flagged as C-terminus despite trailing waters");
+
+        // should match the water-free baseline exactly: waters contribute nothing
+        assert_eq!(charged.len(), 8);
+    }
 
     fn parse_toy_chain() -> Chain {
         let mut options = ReadOptions::new();
