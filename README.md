@@ -10,7 +10,7 @@ This project mirrors `prodes`'s Python module layout module-for-module, reimplem
 
 > Neijenhuis, T., Le Bussy, O., Geldhof, G., Klijn, M. E., & Ottens, M. (2024). Predicting protein retention in ion-exchange chromatography using an open source QSPR workflow. *Biotechnology Journal*, 19, e2300708. https://doi.org/10.1002/biot.202300708
 
-See also [`prodes-fork`](https://zenodo.org/records/10369949) (Mark Teese / 22DataCatalysis GmbH), an independent ~170x-faster fork of the original Python tool.
+See also [`prodes-fork`](https://github.com/datacatalysis/prodes) (Mark Teese / 22DataCatalysis GmbH), an independent ~170x-faster fork of the original Python tool.
 
 ## Status
 
