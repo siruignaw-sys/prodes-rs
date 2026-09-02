@@ -27,9 +27,10 @@ pub fn termini_check(atom_name: &str, first: bool, last: bool) -> Option<(f64, b
 
 pub fn ionizable_atoms(chain: &Chain) -> Vec<(&Atom, f64, bool)> {
     let mut result = Vec::new();
-    let residue_count = chain.residues().count();
+    let polymer_residues: Vec<&Residue> = chain.residues().filter(|r| is_polymer(r)).collect();
+    let residue_count = polymer_residues.len(); 
 
-    for (i, residue) in chain.residues().enumerate() {
+    for (i, residue) in polymer_residues.into_iter().enumerate() {
         let is_first = i == 0;
         let is_last = i == residue_count - 1;
     
@@ -54,6 +55,14 @@ pub fn ionizable_atoms(chain: &Chain) -> Vec<(&Atom, f64, bool)> {
     }
     result
 }
+
+fn is_polymer(residue: &Residue) -> bool {
+    residue.conformers().next()
+        .and_then(|c| c.atoms().next())
+        .map(|a| !a.hetero())
+        .unwrap_or(false)
+}
+
 
 #[cfg(test)]
 mod tests {
