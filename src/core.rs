@@ -38,9 +38,6 @@ pub fn ionizable_atoms(chain: &Chain) -> Vec<(&Atom, f64, bool)> {
             else {
                 continue;
             };
-        println!(
-            "residue {} ({:?}) has {} conformer(s), picked altLoc={:?}", residue.serial_number(), residue.name(), residue.conformer_count(), conformer.alternative_location()
-            );
         if let Some((pka, positive, atom_names)) = residue.name().and_then(pka_data) {
             for atom in conformer.atoms() {
                 if atom_names.contains(&atom.name()) {

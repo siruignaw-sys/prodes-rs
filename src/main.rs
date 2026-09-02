@@ -9,7 +9,8 @@ use crate::core::*;
 use crate::calculations::sasa::{exposure, radius};
 
 fn main() {
-    let mut pdb = get_pdb("data/4F5S.pdb").expect("Failed to load PDB");
+    let path = std::env::args().nth(1).expect("usage: prodes-rs <path-to-pdb>");
+    let mut pdb = get_pdb(&path).expect("Failed to load pdb");
     let chain_index = pdb.chains().position(|c| c.id() == "A").unwrap_or(0);
     let chain = pdb.chains_mut().nth(chain_index).expect("PDB has no chains");
 
