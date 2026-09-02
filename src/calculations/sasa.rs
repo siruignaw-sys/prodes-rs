@@ -1,6 +1,7 @@
 use pdbtbx::*;
 use std::collections::HashMap;
 use crate::calculations::geometry::{Point3D, point_to_cell, fibonacci_sphere, distance};
+use std::f64::consts::PI;
 
 pub fn exposure(atoms: Vec<&Atom>, cell_size: f64) -> (Vec<Point3D>, Vec<(f64, &Atom)>) {
     let mut map: HashMap<(i64, i64, i64), Vec<usize>> = HashMap::new();
@@ -38,7 +39,10 @@ pub fn exposure(atoms: Vec<&Atom>, cell_size: f64) -> (Vec<Point3D>, Vec<(f64, &
             }
         }
 
-        let points = fibonacci_sphere(a_center, own_radius);
+
+        let n_points = (own_radius.powi(2) * 4.0 * PI * 2.0) as usize;
+
+        let points = fibonacci_sphere(a_center, own_radius, n_points);
         let total_points = points.len();
         let mut exposed = 0;
         

@@ -1,4 +1,5 @@
 use pdbtbx::*;
+use crate::calculations::standard_equations::{pos_charge, neg_charge};
 
 pub fn pka_data(residue_name: &str) -> Option<(f64, bool, Vec<&'static str>)> {
     match residue_name {
@@ -25,7 +26,7 @@ pub fn termini_check(atom_name: &str, first: bool, last: bool) -> Option<(f64, b
     }
 }
 
-pub fn ionizable_atoms(chain: &Chain) -> Vec<(&Atom, f64, bool)> {
+pub fn ionizable_atoms(chain: &Chain) -> Vec<(&Atom, f64, bool, usize)> {
     let mut result = Vec::new();
     let polymer_residues: Vec<&Residue> = chain.residues().filter(|r| is_polymer(r)).collect();
     let residue_count = polymer_residues.len(); 
@@ -40,29 +41,60 @@ pub fn ionizable_atoms(chain: &Chain) -> Vec<(&Atom, f64, bool)> {
                 continue;
             };
         if let Some((pka, positive, atom_names)) = residue.name().and_then(pka_data) {
-            for atom in conformer.atoms() {
-                if atom_names.contains(&atom.name()) {
-                    result.push((atom, pka, positive));
-                }
+            let matched: Vec<&Atom> = conformer.atoms()
+                .filter(|a| atom_names.contains(&a.name()))
+                .collect();
+            let group_size = matched.len();
+            for atom in matched {
+                result.push((atom, pka, positive, group_size));
             }
         }
 
         for atom in conformer.atoms() {
             if let Some((pka, positive)) = termini_check(atom.name(), is_first, is_last) {
-                result.push((atom, pka, positive));
+                result.push((atom, pka, positive, 1));
             }
         }
     }
     result
 }
 
-fn is_polymer(residue: &Residue) -> bool {
+pub fn is_polymer(residue: &Residue) -> bool {
     residue.conformers().next()
         .and_then(|c| c.atoms().next())
         .map(|a| !a.hetero())
         .unwrap_or(false)
 }
 
+pub fn charges_at_ph(chain: &Chain, ph: f64) -> Vec<(&Atom, f64)> {
+    ionizable_atoms(chain)
+        .into_iter()
+        .map(|(atom, pka, positive, group_size)| {
+            let charge = if positive { pos_charge(pka, ph) } else { neg_charge (pka, ph) };
+            (atom, charge / group_size as f64)
+        })
+    .collect()
+}
+
+pub fn total_charge_at_ph(chain: &Chain, ph: f64) -> f64 {
+    charges_at_ph(chain, ph).iter().map(|(_, q)| q).sum()
+}
+
+pub fn isoelectric_point(chain: &Chain) -> f64 {
+    let mut low = 0.0;
+    let mut high = 14.0;
+
+    while high - low > 0.0000001 {
+        let mid = (low + high) / 2.0;
+        let charge = total_charge_at_ph(chain, mid);
+        if charge > 0.0 {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    (low + high) / 2.0
+}
 
 #[cfg(test)]
 mod tests {
@@ -166,7 +198,7 @@ mod tests {
         assert_eq!(water_count, 2, "test fixture should have 2 waters");
 
         let charged = ionizable_atoms(&chain);
-        let c_term: Vec<_> = charged.iter().filter(|(_, pka, _)| *pka == 2.34).collect();
+        let c_term: Vec<_> = charged.iter().filter(|(_, pka, _, _)| *pka == 2.34).collect();
         assert_eq!(c_term.len(), 1, "LYS's C should still be flagged as C-terminus despite trailing waters");
 
         // should match the water-free baseline exactly: waters contribute nothing
@@ -191,7 +223,7 @@ mod tests {
         assert_eq!(arg.conformer_count(), 2, "test fixture should have 2 ARG conformers");
 
         let charged = ionizable_atoms(&chain);
-        let arg_atoms: Vec<_> = charged.iter().filter(|(_, pka, _)| *pka == 13.8).collect();
+        let arg_atoms: Vec<_> = charged.iter().filter(|(_, pka, _, _)| *pka == 13.8).collect();
         assert_eq!(arg_atoms.len(), 3, "ARG side chain should contribute NE/NH1/NH2 once, not twice");
     }
 
@@ -200,8 +232,8 @@ mod tests {
         let chain = parse_toy_chain();
         let charged = ionizable_atoms(&chain);
 
-        let n_term: Vec<_> = charged.iter().filter(|(_, pka, _)| *pka == 9.69).collect();
-        let c_term: Vec<_> = charged.iter().filter(|(_, pka, _)| *pka == 2.34).collect();
+        let n_term: Vec<_> = charged.iter().filter(|(_, pka, _, _)| *pka == 9.69).collect();
+        let c_term: Vec<_> = charged.iter().filter(|(_, pka, _, _)| *pka == 2.34).collect();
         assert_eq!(n_term.len(), 1, "exactly one N-terminus hit expected");
         assert_eq!(c_term.len(), 1, "exactly one C-terminus hit expected");
     }
