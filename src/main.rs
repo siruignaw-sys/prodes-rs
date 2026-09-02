@@ -16,7 +16,7 @@ fn main() {
 
     chain.sort(); 
 
-    ionizable_atoms(&chain);
+    let ionizable_atoms_list = ionizable_atoms(&chain);
     
     let atoms: Vec<&Atom> = chain.atoms().collect();
     
@@ -30,8 +30,8 @@ fn main() {
     }
     let cell_size = max_radius * 2.0;
     let (exposed_points, fraction_exposed) = exposure(atoms, cell_size);
-    println!("{}", exposed_points.len());
-
+    println!("chain A: {} exposed surface points", exposed_points.len());
+    println!("chain A: {} ionizable atoms fouind", ionizable_atoms_list.len());
     
 }
 
