@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 description = "A rust reimplementation of prodes: SASA, ionization-atom detection, and surface electrostatics/pI for protein feature calculation."
 license = "MIT"
-respository = "https://github.com/siruignaw-sys/prodes-rs"
+repository = "https://github.com/siruignaw-sys/prodes-rs"
 keywords = ["bioinformatics", "protein", "sasa", "chemistry"]
 [dependencies]
+clap = { version = "4.6.6", features = ["derive"] }
 pdbtbx = "0.12.0"

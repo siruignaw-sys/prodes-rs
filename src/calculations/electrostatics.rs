@@ -1,6 +1,5 @@
 use crate::calculations::geometry::*;
 use crate::calculations::distance_functions::*;
-use crate::core::*;
 use pdbtbx::*;
 
 pub fn electrostatic_potential(point: &Point3D, charged_atoms: &[(&Atom, f64)]) -> f64 {
