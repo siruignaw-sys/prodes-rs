@@ -69,6 +69,15 @@ fn main() {
     
     for ph in ph_values {
         let charged_atoms = charges_at_ph(&chain, ph);
+        
+        let potentials: Vec<f64> = property_points.iter()
+            .map(|p| electrostatic_potential(p, &charged_atoms))
+            .collect();
+        let n_neg = potentials.iter().filter(|&&v| v < 0.0).count();
+        let n_pos = potentials.iter().filter(|&&v| v >= 0.0).count();
+        let most_negative = potentials.iter().cloned().fold(0.0_f64, |a, b| a.min(b));
+        eprintln!("ph={}: n_neg={}, n_pos={}, most_negative_point={}", ph, n_neg, n_pos, most_negative);
+
         let surf_ep_neg_sum_val = surf_ep_neg_sum(&property_points, &charged_atoms);
         let row = format!("{},{},{},{}\n", id, ph, iso_point, surf_ep_neg_sum_val);
         file.write_all(row.as_bytes()).expect("failed to write row");
