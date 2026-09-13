@@ -1,6 +1,7 @@
 use pdbtbx::*;
 use crate::calculations::standard_equations::{pos_charge, neg_charge, pos_charge_formal, neg_charge_formal};
 use clap::ValueEnum;
+use crate::calculations::geometry::*;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum ChargeMode {
@@ -110,6 +111,20 @@ pub fn isoelectric_point(chain: &Chain, mode: ChargeMode) -> f64 {
         }
     }
     (low + high) / 2.0
+}
+
+pub fn centroid(chain: &Chain) -> Point3D {
+    let mut sum: Point3D = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+    let mut num: f64 = 0.0;
+    for atom in chain.atoms() {
+        if atom.element() != Some(&Element::H) {
+            let (ax, ay, az) = atom.pos();
+            let pos = Point3D { x: ax, y: ay, z: az };
+            sum = sum + pos;
+            num += 1.0;
+        }
+    }
+    sum * (1.0 / num)
 }
 
 #[cfg(test)]

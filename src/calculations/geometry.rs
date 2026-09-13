@@ -8,6 +8,53 @@ pub struct Point3D {
     pub z: f64
 }
 
+impl std::ops::Sub for Point3D {
+    type Output = Point3D;
+
+    fn sub (self, other: Point3D)-> Point3D {
+        Point3D { 
+            x: self.x - other.x, 
+            y: self.y - other.y, 
+            z: self.z - other.z 
+        }
+    }
+}
+
+impl std::ops::Add for Point3D {
+    type Output = Point3D;
+
+    fn add(self, other: Point3D) -> Point3D {
+        Point3D {
+            x: self.x + other.x, 
+            y: self.y + other.y,
+            z: self.z + other.z
+        }
+    }
+}
+
+impl std::ops::Mul<f64> for Point3D {
+    type Output = Point3D;
+    fn mul(self, scalar: f64) -> Point3D {
+        Point3D {
+            x: self.x * scalar,
+            y: self.y * scalar,
+            z: self.z * scalar
+        }
+    }
+}
+
+pub fn dot(a: Point3D, b: Point3D) -> f64 {
+    a.x * b.x + a.y * b.y + a.z * b.z
+}
+
+pub fn magnitude(v: Point3D) -> f64 {
+    dot(v, v).sqrt()
+}
+
+pub fn normalize(v: Point3D) -> Point3D {
+    v * (1.0 / magnitude(v))
+}
+
 pub fn distance(p1: &Point3D, p2: &Point3D) -> f64 {
     ((p1.x-p2.x).powi(2) + (p1.y-p2.y).powi(2) + (p1.z-p2.z).powi(2)).sqrt()
 }
