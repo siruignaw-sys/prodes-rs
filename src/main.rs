@@ -21,6 +21,8 @@ struct Args {
 
     #[arg(long, default_value = "7", value_delimiter = ',', value_parser = clap::value_parser!(f64))]
     ph: Vec<f64>,
+    #[arg(long, value_enum, default_value_t = ChargeMode::Average)]
+    charge_mode: ChargeMode,
 }
 
 fn main() {
@@ -32,7 +34,7 @@ fn main() {
     
     let file_exists = Path::new(&out_file).exists();
 
-    let header = "id,ph,pi,surf_ep_neg_sum_average\n";
+    let header = "id,ph,pi,surf_ep_neg_sum_average,charge_mode\n";
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -51,7 +53,7 @@ fn main() {
     chain.sort(); 
 
     let atoms: Vec<&Atom> = chain.atoms().collect();
-    let iso_point = isoelectric_point(chain);
+    let iso_point = isoelectric_point(chain, args.charge_mode);
     let mut max_radius = 0.0;
     for atom in atoms.iter() {
         if let Some(rad) = radius(atom.element())
@@ -67,10 +69,10 @@ fn main() {
     let id = Path::new(&path).file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
     
     for ph in ph_values {
-        let charged_atoms = charges_at_ph(chain, ph);
+        let charged_atoms = charges_at_ph(chain, ph, args.charge_mode);
         
         let surf_ep_neg_sum_val = surf_ep_neg_sum(&property_points, &charged_atoms);
-        let row = format!("{},{},{},{}\n", id, ph, iso_point, surf_ep_neg_sum_val);
+        let row = format!("{},{},{},{},{:?}\n", id, ph, iso_point, surf_ep_neg_sum_val, args.charge_mode);
         file.write_all(row.as_bytes()).expect("failed to write row");
     }
 }

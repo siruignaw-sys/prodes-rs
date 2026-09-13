@@ -1,5 +1,12 @@
 use pdbtbx::*;
-use crate::calculations::standard_equations::{pos_charge, neg_charge};
+use crate::calculations::standard_equations::{pos_charge, neg_charge, pos_charge_formal, neg_charge_formal};
+use clap::ValueEnum;
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum ChargeMode {
+    Average,
+    Formal
+}
 
 pub fn pka_data(residue_name: &str) -> Option<(f64, bool, Vec<&'static str>)> {
     match residue_name {
@@ -66,27 +73,36 @@ pub fn is_polymer(residue: &Residue) -> bool {
         .unwrap_or(false)
 }
 
-pub fn charges_at_ph(chain: &Chain, ph: f64) -> Vec<(&Atom, f64)> {
+pub fn charges_at_ph(chain: &Chain, ph: f64, mode: ChargeMode) -> Vec<(&Atom, f64)> {
     ionizable_atoms(chain)
         .into_iter()
         .map(|(atom, pka, positive, group_size)| {
-            let charge = if positive { pos_charge(pka, ph) } else { neg_charge (pka, ph) };
-            (atom, charge / group_size as f64)
+            match mode {
+                ChargeMode::Formal => {
+                    let charge = if positive { pos_charge_formal(pka, ph) } else { neg_charge_formal (pka, ph) };
+                    (atom, charge / group_size as f64)
+                },
+                ChargeMode::Average => {
+                    let charge = if positive { pos_charge(pka, ph) } else { neg_charge (pka, ph) };
+                    (atom, charge / group_size as f64)
+
+                }
+            }
         })
     .collect()
 }
 
-pub fn total_charge_at_ph(chain: &Chain, ph: f64) -> f64 {
-    charges_at_ph(chain, ph).iter().map(|(_, q)| q).sum()
+pub fn total_charge_at_ph(chain: &Chain, ph: f64, mode: ChargeMode) -> f64 {
+    charges_at_ph(chain, ph, mode).iter().map(|(_, q)| q).sum()
 }
 
-pub fn isoelectric_point(chain: &Chain) -> f64 {
+pub fn isoelectric_point(chain: &Chain, mode: ChargeMode) -> f64 {
     let mut low = 0.0;
     let mut high = 14.0;
 
     while high - low > 0.0000001 {
         let mid = (low + high) / 2.0;
-        let charge = total_charge_at_ph(chain, mid);
+        let charge = total_charge_at_ph(chain, mid, mode);
         if charge > 0.0 {
             low = mid;
         } else {
