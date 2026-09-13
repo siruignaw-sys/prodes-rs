@@ -73,9 +73,6 @@ fn main() {
         let potentials: Vec<f64> = property_points.iter()
             .map(|p| electrostatic_potential(p, &charged_atoms))
             .collect();
-        let n_neg = potentials.iter().filter(|&&v| v < 0.0).count();
-        let n_pos = potentials.iter().filter(|&&v| v >= 0.0).count();
-        let most_negative = potentials.iter().cloned().fold(0.0_f64, |a, b| a.min(b));
 
         let surf_ep_neg_sum_val = surf_ep_neg_sum(&property_points, &charged_atoms);
         let row = format!("{},{},{},{}\n", id, ph, iso_point, surf_ep_neg_sum_val);
