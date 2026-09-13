@@ -23,10 +23,10 @@ Implemented and tested:
 - **Isoelectric point** (`core.rs`) — Henderson-Hasselbalch charge model over a standard ionizable-residue pKa table, including N/C-termini, alternate-location conformer deduplication, and correct handling of trailing HETATM records (e.g. crystallographic waters) that would otherwise be mistaken for a chain's true C-terminus. Multi-atom ionizable groups (e.g. arginine's guanidinium, aspartate's carboxylate) correctly split their group charge across their constituent atoms rather than over-counting it. Validated against the full 13-protein training set from Neijenhuis et al. (2025), Table 1: 11 of 13 proteins land within ~0.15 pH units of the paper's published theoretical pI, several within 0.01–0.05 (bovine serum albumin, PDB 4F5S: 5.494 computed vs. 5.5 published). The remaining discrepancies have identified, understood causes — see "Known differences from `prodes`" below.
 - **Solvent-accessible surface area** (`calculations/sasa.rs`) — Shrake-Rupley algorithm with a spatial-hash grid for neighbor search. Sample point density per atom scales with each atom's own probe-inflated surface area, matching `prodes`'s approach rather than using a fixed point count. Cross-checked directly against a live run of the real Python `prodes` on the same structures: within ~1.5% of the reference point count on 1GDW, and within ~0.5% on 4F5S chain A (29,287 points vs. 29,112; 28,500 negative-potential points vs. 28,632).
 - **Surface electrostatic potential** (`calculations/electrostatics.rs`, `calculations/distance_functions.rs`) — Coulomb potential summed at a coarsened grid of surface points (`calculations/geometry.rs::property_points_on_surface`), filtered to negative-potential points and summed, matching `prodes`'s `SurfEpNegSumAverage` feature. The underlying Coulomb formulas are verified bit-for-bit against the Python reference on matched inputs, and the aggregate feature value has been directly compared against a live `prodes` run on a real structure (see "Known differences from `prodes`" below for the one identified source of divergence).
+- **Formal charge mode** (`core.rs`, `calculations/standard_equations.rs`) — the binarized ±1/n charge assignment alongside the continuous Henderson-Hasselbalch ("Average") mode, selectable per run via `--charge-mode`. Each ionizable group is either fully charged or fully neutral depending on which side of its pKa the pH falls on, rather than the smooth fractional charge Average mode assigns. One consequence worth knowing: because total charge as a function of pH becomes a step function under Formal mode, the isoelectric point search can only converge onto one of the ionizable residues' own pKa values (wherever the sign of total charge flips), never a smooth in-between value the way Average mode's pI can. This was confirmed empirically on 4F5S: Formal-mode pI converges to 6.000, exactly HIS's pKa in the table, while Average-mode pI on the same structure is 5.494.
 
 Not yet implemented:
 
-- The "Formal" (binarized ±1/n) charge mode — only the continuous Henderson-Hasselbalch ("Average") charge mode is implemented, which is what the two-feature retention model actually uses.
 - `prodes`'s "Shell" electrostatics feature family (potential projected onto a plane with a two-dielectric protein/solvent boundary) — a separate, more elaborate feature set in the original tool that the two-feature model doesn't require.
 - Hydrophobicity/lipophilicity features, surface shape descriptors, and custom pKa file import (PROPKA/H++/pypka) — all present in `prodes`, none currently ported.
 
@@ -45,10 +45,10 @@ Net effect: the direction of the resulting pI gap depends on the charge sign of 
 
 ```
 cargo build --release
-./target/release/prodes-rs <path-to-pdb> <path-to-output-csv> [--ph <comma-separated pH values>]
+./target/release/prodes-rs <path-to-pdb> <path-to-output-csv> [--ph <comma-separated pH values>] [--charge-mode <average|formal>]
 ```
 
-`--ph` defaults to `7`. Example, computing features across the four pH values used in the retention model's training data:
+`--ph` defaults to `7`; `--charge-mode` defaults to `average`. Example, computing features across the four pH values used in the retention model's training data:
 
 ```
 prodes-rs my_protein.pdb features.csv --ph 7,8,9,10
@@ -57,9 +57,9 @@ prodes-rs my_protein.pdb features.csv --ph 7,8,9,10
 Each run appends one row per pH value to the output CSV (writing the header first if the file doesn't already exist), so repeated invocations across multiple structures accumulate into a single growing feature table:
 
 ```
-id,ph,pi,surf_ep_neg_sum_average
-my_protein,7,6.02,-12.4
-my_protein,8,6.02,-58.1
+id,ph,pi,surf_ep_neg_sum_average,charge_mode
+my_protein,7,6.02,-12.4,Average
+my_protein,8,6.02,-58.1,Average
 ...
 ```
 
@@ -83,10 +83,10 @@ Two issues have come up when running real PDB/AlphaFold files through this tool,
 src/
 ├── main.rs                          CLI entry point
 ├── io.rs                            PDB loading
-├── core.rs                          pKa table, charge assignment, isoelectric point
+├── core.rs                          pKa table, charge assignment, isoelectric point, ChargeMode
 └── calculations/
     ├── geometry.rs                  Point3D, distance, spatial grid cells, surface-point coarsening
-    ├── standard_equations.rs        Henderson-Hasselbalch charge equations
+    ├── standard_equations.rs        Henderson-Hasselbalch and Formal-mode charge equations
     ├── sasa.rs                      Shrake-Rupley solvent-accessible surface area
     ├── distance_functions.rs        Coulomb potential
     └── electrostatics.rs            Surface electrostatic potential, negative-sum feature
