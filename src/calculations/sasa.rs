@@ -70,12 +70,12 @@ pub fn exposure(atoms: Vec<&Atom>, cell_size: f64) -> (Vec<Point3D>, Vec<(f64, &
         }
         fraction_exposed.push((exposed as f64 / total_points as f64, atom));
     }
-    return (exposed_points, fraction_exposed);
+    (exposed_points, fraction_exposed)
 }
 
 pub fn radius(atom: Option<&Element>) -> Option<f64> {
      if let Some(a) = atom {
          return a.atomic_radius().van_der_waals;
      }
-     return None;
+     None
 }

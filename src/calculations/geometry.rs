@@ -9,17 +9,17 @@ pub struct Point3D {
 }
 
 pub fn distance(p1: &Point3D, p2: &Point3D) -> f64 {
-    return ((p1.x-p2.x).powi(2) + (p1.y-p2.y).powi(2) + (p1.z-p2.z).powi(2)).sqrt()
+    ((p1.x-p2.x).powi(2) + (p1.y-p2.y).powi(2) + (p1.z-p2.z).powi(2)).sqrt()
 }
 
 pub fn point_to_cell(point: Point3D, cell_size: f64) -> (i64, i64, i64) {
     let x_c = (point.x / cell_size).floor() as i64;
     let y_c = (point.y / cell_size).floor() as i64;
     let z_c = (point.z / cell_size).floor() as i64;
-    return (x_c, y_c, z_c);
+    (x_c, y_c, z_c)
 }
 
-pub fn property_points_on_surface(surface_points: &Vec<Point3D>, cell_size: f64) -> Vec<Point3D> {
+pub fn property_points_on_surface(surface_points: &[Point3D], cell_size: f64) -> Vec<Point3D> {
     let mut set: HashSet<(i64, i64, i64)> = HashSet::new();
     let mut out = Vec::new();
     for point in surface_points.iter(){

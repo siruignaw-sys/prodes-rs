@@ -19,13 +19,13 @@ struct Args {
 
     out_file: String,
 
-    #[arg(long, default_value = "7")]
-    ph: String,
+    #[arg(long, default_value = "7", value_delimiter = ',', value_parser = clap::value_parser!(f64))]
+    ph: Vec<f64>,
 }
 
 fn main() {
     let args = Args::parse();
-    let ph_values: Vec<f64> = args.ph.split(',').map(|s| s.trim().parse().unwrap()).collect();
+    let ph_values: Vec<f64> = args.ph;
     let path = args.pdb_path;
     
     let out_file = args.out_file;
@@ -51,14 +51,13 @@ fn main() {
     chain.sort(); 
 
     let atoms: Vec<&Atom> = chain.atoms().collect();
-    let iso_point = isoelectric_point(&chain);
+    let iso_point = isoelectric_point(chain);
     let mut max_radius = 0.0;
     for atom in atoms.iter() {
-        if let Some(rad) = radius(atom.element()){
-            if rad + 1.4 > max_radius {
+        if let Some(rad) = radius(atom.element())
+            && rad + 1.4 > max_radius {
                 max_radius = rad + 1.4;
             }
-        }
     }
     let cell_size = max_radius * 2.0;
     
@@ -68,12 +67,8 @@ fn main() {
     let id = Path::new(&path).file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string();
     
     for ph in ph_values {
-        let charged_atoms = charges_at_ph(&chain, ph);
+        let charged_atoms = charges_at_ph(chain, ph);
         
-        let potentials: Vec<f64> = property_points.iter()
-            .map(|p| electrostatic_potential(p, &charged_atoms))
-            .collect();
-
         let surf_ep_neg_sum_val = surf_ep_neg_sum(&property_points, &charged_atoms);
         let row = format!("{},{},{},{}\n", id, ph, iso_point, surf_ep_neg_sum_val);
         file.write_all(row.as_bytes()).expect("failed to write row");
