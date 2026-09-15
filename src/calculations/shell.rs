@@ -1,6 +1,29 @@
 use crate::calculations::geometry::*;
 use std::f64::consts::PI;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use crate::calculations::distance_functions::*;
+
+#[derive(Debug)]
+pub struct Stats {
+    pub mean: f64,
+    pub trimean: f64,
+    pub median: f64,
+    pub sum: f64,
+    pub std: f64,
+}
+
+pub fn standard_features(values:&[f64]) -> Stats {
+    if values.is_empty() {
+        return Stats { mean: 0.0, trimean: 0.0, median: 0.0, sum: 0.0, std: 0.0};
+    }
+    let sum = values.iter().sum();
+    let mean = sum / values.len() as f64;
+    let median = median(values).unwrap();
+    let trimean = trimean(values);
+    let std = (values.iter().map(|x| ((x - mean) as f64).powi(2)).sum::<f64>() / values.len() as f64).sqrt();
+    return Stats {mean: mean, trimean: trimean, median: median, sum: sum, std: std};
+}
 
 pub fn find_plane(point_on_plane: Point3D, normal_vector_point: Point3D) -> (f64, f64, f64, f64) {
     let p = normal_vector_point - point_on_plane;
@@ -59,12 +82,96 @@ pub fn build_surface_grid(points: &[Point3D], cell_size: f64) -> HashMap<(i64, i
     let mut map: HashMap<(i64, i64, i64), Vec<Point3D>> = HashMap::new();
     for point in points {
         let (xc, yc, zc) = point_to_cell(point.clone(), cell_size);
-        map.entry((xc, yc, zc)).or_default().push(point.clone());
+        map.entry((xc, yc, zc)).or_default().push(*point);
     }
     map
 }
 
+pub fn find_exit(
+    point_vector: Point3D,
+    projected_point_vector: Point3D,
+    grid: &HashMap<(i64, i64, i64), Vec<Point3D>>,
+    cell_size: f64,
+) -> Option<Point3D> {
+    let direction = normalize(projected_point_vector - point_vector);
+    let total_distance = magnitude (projected_point_vector - point_vector);
 
+    let mut visited: HashSet<(i64, i64, i64)> = HashSet::new();
+
+    let steps = (total_distance.ceil() as usize) * 2;
+
+    for i in 0..steps{
+        let sample_point = point_vector + direction * (i as f64 / 2.0);
+        let sample_cell = point_to_cell(sample_point, cell_size);
+        let neighbors = neighbor_cells(sample_cell);
+        visited.insert(sample_cell);
+        for cell in neighbors {
+            visited.insert(cell);
+        }
+    }
+
+    let mut points: Vec<Point3D> = Vec::new();
+    for cell in visited {
+        if let Some(pts) = grid.get(&cell) {
+            points.extend(pts);
+        }
+    }
+    let mut max: f64 = 0.0;
+    let mut best_exit: Option<Point3D> = None;
+    for point in points {
+        let vector = point - point_vector;
+        let dot_prod = dot(direction, vector);
+        if dot_prod <= 0.0 {
+            continue;
+        }
+        let potential_exit = point_vector + direction * dot_prod;
+        let perp_distance = magnitude(potential_exit - point);
+        if (perp_distance * 10.0).round() / 10.0 <= 1.0 {
+            if dot_prod > max {
+                max = dot_prod;
+                best_exit = Some(potential_exit);
+            }
+        }
+    }
+    best_exit
+}
+
+pub fn map_ep_to_plane(atom_position: Point3D, charge: f64, projected_point: Point3D, surface_exit: Point3D) -> f64 {
+    let total_distance = magnitude(projected_point - atom_position);
+    let protein_distance = magnitude(surface_exit - atom_position);
+    let solvent_segment = (total_distance - protein_distance) * 1e-10;
+    let protein_segment = protein_distance * 1e-10;
+    let atom_charge = atom_charge_coulomb(charge);
+    potential_multiple_media(atom_charge, vec![(solvent_segment, 80.0), (protein_segment, 4.0)])
+}
+
+pub fn median(values: &[f64]) -> Option<f64> {
+    let mut valid_numbers: Vec<f64> = values.iter()
+        .copied()
+        .filter(|x| !x.is_nan())
+        .collect();
+    if valid_numbers.is_empty() {
+        return None;
+    }
+
+    valid_numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    
+    let mid = valid_numbers.len() / 2;
+    if valid_numbers.len() %2 == 0 {
+        Some((valid_numbers[mid-1] + valid_numbers[mid])/2.0)
+    } else {
+        Some(valid_numbers[mid])
+    }
+}
+
+pub fn trimean(values: &[f64]) -> f64 {
+    let q2 = median(values).unwrap();
+    let lesser: Vec<f64> = values.iter().filter(|&&x| x < q2).copied().collect();
+    let greater: Vec<f64> = values.iter().filter(|&&x| x > q2).copied().collect();
+    let q1 = median(&lesser).unwrap_or(f64::NAN);
+    let q3 = median(&greater).unwrap_or(f64::NAN);
+    (q2*2.0 + q1 + q3)/4.0
+}
 
 #[cfg(test)]
 mod tests {
