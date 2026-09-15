@@ -3,6 +3,8 @@ use std::f64::consts::PI;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use crate::calculations::distance_functions::*;
+use pdbtbx::*;
+use crate::core::*;
 
 #[derive(Debug)]
 pub struct Stats {
@@ -11,6 +13,63 @@ pub struct Stats {
     pub median: f64,
     pub sum: f64,
     pub std: f64,
+}
+
+pub struct ShellFeatures {
+    pub shell_ep_max: f64,
+    pub shell_ep_min: f64,
+    pub shell_ep_stats: Stats,
+    pub n_shell_pos_ep: usize,
+    pub shell_pos_stats: Stats,
+    pub n_shell_neg_ep: usize,
+    pub shell_neg_stats: Stats,
+}
+
+pub fn calculate_shell_features(
+    chain: &Chain,
+    centroid: Point3D,
+    surface_points: &[Point3D],
+    ph: f64,
+    n_points: usize,
+) -> ShellFeatures {
+    let surface_grid = build_surface_grid(surface_points, 2.0);
+    let charged = charges_at_ph(chain, ph, ChargeMode::Formal);
+    let direction_points = sunflower_sphere(centroid, 1.0, n_points);
+    let mut direction_eps = Vec::new();
+    for direction in &direction_points {
+        let req_dis = required_distance(*direction, centroid, surface_points);
+        let new_point = move_point(*direction, centroid, req_dis);
+        let (a, b, c, d) = find_plane(new_point, centroid);
+        let mut direction_ep = 0.0;
+        for (atom, charge) in &charged {
+            let (x, y, z) = atom.pos();
+            let pos = Point3D {x: x, y: y, z: z};
+            let projected = project_point(a, b, c, d, pos);  
+            if let Some(exit) = find_exit(pos, projected, &surface_grid, 2.0) {
+                direction_ep += map_ep_to_plane(pos, *charge, projected, exit);
+            }
+            
+        }
+        direction_eps.push(direction_ep);
+    }
+    let shell_ep_min = direction_eps.iter()
+        .cloned()
+        .fold(f64::MAX, f64::min);
+    
+    let shell_ep_max = direction_eps.iter()
+        .cloned()
+        .fold(f64::MIN, f64::max);
+    let n_shell_pos_ep: Vec<f64> = direction_eps.iter().cloned().filter(|x| *x > 0.0).collect();
+    let n_shell_neg_ep: Vec<f64> = direction_eps.iter().cloned().filter(|x| *x < 0.0).collect();
+     return ShellFeatures {
+        shell_ep_max: shell_ep_max,
+        shell_ep_min: shell_ep_min,
+        shell_ep_stats: standard_features(&direction_eps), 
+        n_shell_pos_ep: n_shell_pos_ep.len(), 
+        shell_pos_stats: standard_features(&n_shell_pos_ep),
+        n_shell_neg_ep: n_shell_neg_ep.len(),
+        shell_neg_stats: standard_features(&n_shell_neg_ep),
+    };
 }
 
 pub fn standard_features(values:&[f64]) -> Stats {
