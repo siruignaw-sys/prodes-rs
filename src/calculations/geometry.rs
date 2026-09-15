@@ -106,6 +106,18 @@ pub fn fibonacci_sphere(center: Point3D, radius: f64, n_points: usize) -> Vec<Po
     points
 }
 
+pub fn neighbor_cells(cell: (i64, i64, i64)) -> Vec<(i64, i64, i64)> {
+    let mut cells = Vec::new();
+    for dx in -1..=1 {
+        for dy in -1..=1 {
+            for dz in -1..=1 {
+                cells.push((cell.0 + dx, cell.1 + dy, cell.2 + dz));
+            }
+        }
+    }
+    cells
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

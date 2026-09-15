@@ -1,6 +1,6 @@
 use pdbtbx::*;
 use std::collections::HashMap;
-use crate::calculations::geometry::{Point3D, point_to_cell, fibonacci_sphere, distance};
+use crate::calculations::geometry::{Point3D, point_to_cell, fibonacci_sphere, distance, neighbor_cells};
 use std::f64::consts::PI;
 
 pub fn exposure(atoms: Vec<&Atom>, cell_size: f64) -> (Vec<Point3D>, Vec<(f64, &Atom)>) {
@@ -29,16 +29,11 @@ pub fn exposure(atoms: Vec<&Atom>, cell_size: f64) -> (Vec<Point3D>, Vec<(f64, &
         let cell = point_to_cell(a_center, cell_size);
         
         let mut candidates: Vec<usize> = Vec::new();
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                for dz in -1..=1 {
-                    if let Some(v) = map.get(&(cell.0 + dx, cell.1 + dy, cell.2 + dz)) {
-                        candidates.extend(v.iter().copied());
-                    }               
-                }
-            }
+        for neighbor in neighbor_cells(cell) {
+            if let Some(v) = map.get(&neighbor) {
+                candidates.extend(v.iter().copied());        
+            }               
         }
-
 
         let n_points = (own_radius.powi(2) * 4.0 * PI * 2.0) as usize;
 
