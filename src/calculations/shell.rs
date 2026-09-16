@@ -254,4 +254,103 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn find_plane_xy_plane_through_origin() {
+        let point_on_plane = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+        let normal_vector_point = Point3D { x: 0.0, y: 0.0, z: 1.0 };
+
+        let (a, b, c, d) = find_plane(point_on_plane, normal_vector_point);
+
+        assert!((a - 0.0).abs() < 1e-9, "a should be 0, got {}", a);
+        assert!((b - 0.0).abs() < 1e-9, "b should be 0, got {}", b);
+        assert!((c - 1.0).abs() < 1e-9, "c should be 1, got {}", c);
+        assert!((d - 0.0).abs() < 1e-9, "d should be 0, got {}", d);
+    }
+
+    #[test]
+    fn project_point_onto_xy_plane_drops_z() {
+        // plane (a=0, b=0, c=1, d=0) is the xy-plane, per find_plane_xy_plane_through_origin
+        let projected = project_point(0.0, 0.0, 1.0, 0.0, Point3D { x: 3.0, y: 4.0, z: 5.0 });
+
+        assert!((projected.x - 3.0).abs() < 1e-9, "x should pass through unchanged, got {}", projected.x);
+        assert!((projected.y - 4.0).abs() < 1e-9, "y should pass through unchanged, got {}", projected.y);
+        assert!((projected.z - 0.0).abs() < 1e-9, "z should be dropped to 0, got {}", projected.z);
+    }
+
+    #[test]
+    fn move_point_travels_exact_magnitude_along_direction() {
+        let point = Point3D { x: 1.0, y: 0.0, z: 0.0 };
+        let origin = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+
+        let moved = move_point(point, origin, 5.0);
+
+        assert!((moved.x - 5.0).abs() < 1e-9);
+        assert!((moved.y - 0.0).abs() < 1e-9);
+        assert!((moved.z - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn maximal_distance_picks_furthest_point_along_normal() {
+        let normal_vector = Point3D { x: 0.0, y: 0.0, z: 1.0 };
+        let vector_on_plane = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+        let points = vec![
+            Point3D { x: 0.0, y: 0.0, z: 3.0 },
+            Point3D { x: 0.0, y: 0.0, z: -2.0 },
+            Point3D { x: 1.0, y: 1.0, z: 5.0 },
+        ];
+
+        let max = maximal_distance(normal_vector, vector_on_plane, &points);
+
+        assert!((max - 5.0).abs() < 1e-9, "should pick the point 5 units along the normal, got {}", max);
+    }
+
+    #[test]
+    fn required_distance_is_one_past_the_furthest_surface_point() {
+        let point_for_plane = Point3D { x: 0.0, y: 0.0, z: 10.0 };
+        let structure_center = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+        let surface_points = vec![Point3D { x: 0.0, y: 0.0, z: 3.0 }];
+
+        let dist = required_distance(point_for_plane, structure_center, &surface_points);
+
+        assert!((dist - 4.0).abs() < 1e-9, "should be 1.0 past the furthest surface point (3.0), got {}", dist);
+    }
+
+    #[test]
+    fn find_exit_locates_point_directly_on_the_line() {
+        let surface_points = vec![Point3D { x: 0.0, y: 0.0, z: 5.0 }];
+        let grid = build_surface_grid(&surface_points, 2.0);
+
+        let point_vector = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+        let projected_point_vector = Point3D { x: 0.0, y: 0.0, z: 10.0 };
+
+        let exit = find_exit(point_vector, projected_point_vector, &grid, 2.0)
+            .expect("should find an exit point directly on the line");
+
+        assert!((exit.x - 0.0).abs() < 1e-9);
+        assert!((exit.y - 0.0).abs() < 1e-9);
+        assert!((exit.z - 5.0).abs() < 1e-9, "exit should sit at the surface point (z=5), got {}", exit.z);
+    }
+
+    #[test]
+    fn map_ep_to_plane_matches_hand_computed_two_media_potential() {
+        let atom_position = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+        let charge = 0.5;
+        let projected_point = Point3D { x: 0.0, y: 0.0, z: 10.0 };
+        let surface_exit = Point3D { x: 0.0, y: 0.0, z: 5.0 };
+
+        let got = map_ep_to_plane(atom_position, charge, projected_point, surface_exit);
+
+        // hand-computed expected value using the same underlying two-dielectric-media
+        // formula, worked out independently of map_ep_to_plane's own arithmetic
+        let charge_coulombs = charge * 1.6e-19;
+        let absolute_permittivity = 8.854e-12;
+        let solvent_segment_m = 5.0 * 1e-10; // 10 - 5 = 5 Angstrom of solvent
+        let protein_segment_m = 5.0 * 1e-10; // 5 Angstrom of protein
+        let denominator = (80.0 * absolute_permittivity * solvent_segment_m)
+            + (4.0 * absolute_permittivity * protein_segment_m);
+        let expected = charge_coulombs / (denominator * 4.0 * PI);
+
+        assert!((got - expected).abs() < 1e-6, "got {}, expected {}", got, expected);
+    }
 }
